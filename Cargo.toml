@@ -1,0 +1,4 @@
+[package]
+name = "meku"
+version = "0.1.0"
+authors = ["Kevin Balz"]
