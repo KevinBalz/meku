@@ -1,9 +1,23 @@
+extern crate clap;
+
 use std::fs;
 use std::env;
 use std::path::Path;
+use clap::{Arg, App};
 
 fn main() {
-    for dir in env::args().skip(1) {
+    let args = App::new("myapp")
+        .author("Kevin Balz")
+        .version("not nearly finished")
+        .about("An awesome build system for making things.")
+        .arg(Arg::with_name("output")
+            .index(1)
+            .required(true)
+            .multiple(true)
+            .help("Sets the output folder/s")
+        )
+        .get_matches();
+    for dir in args.values_of("output").unwrap().iter() {
         map_contents(dir,&|path| println!("{:?}",path));
     }
 }
