@@ -13,20 +13,12 @@ pub fn run_build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
     copy_dir_with_filelist(&src_dir,tmp_dir.path(),&files);
 
     for tar_dir in target_dirs.iter() {
-        copy_dir_with_filelist(tmp_dir.path(),tar_dir.as_ref(),&files);
+        copy_dir(tmp_dir.path(),tar_dir.as_ref());
     }
 
 }
 
 //Helper Functions
-
-fn map_contents<P: AsRef<Path>,F: Fn(path::PathBuf) -> R,R>(dirref: P,func: F) -> Vec<R> {
-    iter_contents(dirref).map(|p| func(p) ).collect()
-}
-
-fn map_dir<P: AsRef<Path>,F: Fn(path::PathBuf,fs::FileType) -> R,R>(dirref: P,func: F) -> Vec<R> {
-    iter_dir(dirref).map(|(p,t)| func(p,t) ).collect()
-}
 
 fn copy_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     let files: Vec<_> = iter_contents(&src_dir).map(|f| relative_from(&src_dir,f)).collect();
