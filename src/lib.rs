@@ -5,17 +5,40 @@ use tempdir::TempDir;
 use std::fs;
 use std::path;
 use std::path::Path;
+use std::process::Command;
 
-pub fn run_build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
+pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     let files: Vec<_> = iter_contents(&src_dir).map(|f| relative_from(&src_dir,f)).collect();
 
-    let tmp_dir = TempDir::new("meku").unwrap();
-    copy_dir_with_filelist(&src_dir,tmp_dir.path(),&files);
+    copy_dir_with_filelist(&src_dir,&tar_dir,&files);
+}
+
+pub fn buildcmd<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
+    let tmp_dir = TempDir::new("meku-build").unwrap();
+    build_dir(&src_dir,tmp_dir.path());
 
     for tar_dir in target_dirs.iter() {
         copy_dir(tmp_dir.path(),tar_dir.as_ref());
     }
 
+}
+
+pub fn runcmd<S: AsRef<Path>>(src_dir: S,cmdname: &str,params: &[&str]) {
+    let tmp_dir = TempDir::new("meku-run").unwrap();
+    build_dir(&src_dir,tmp_dir.path());
+
+    let mut cmd = Command::new(cmdname);
+    for param in params.iter()
+        .map(|p|
+            if *p == "%{}"
+                {tmp_dir.path().to_str().unwrap()}
+            else {
+                *p
+            }) {
+        cmd.arg(param);
+    }
+    println!("Executing {:?}",cmd);
+    cmd.status().unwrap();
 }
 
 //Helper Functions
