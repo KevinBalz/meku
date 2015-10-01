@@ -5,12 +5,61 @@ use tempdir::TempDir;
 use std::fs;
 use std::path;
 use std::path::Path;
+use std::io::Read;
 use std::process::Command;
 
-pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
-    let files: Vec<_> = iter_contents(&src_dir).map(|f| relative_from(&src_dir,f)).collect();
 
-    copy_dir_with_filelist(&src_dir,&tar_dir,&files);
+
+pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
+    let (mekufiles,files): (Vec<_>, Vec<_>) = iter_contents(&src_dir).partition(|f| match f.extension() {
+        Some(ext) => ext == "meku",
+        None      => false
+    });
+
+    let mekus: Vec<_> =  mekufiles.iter().map( |meku| {
+        let mut file = fs::File::open(meku).unwrap();
+        let mut string = String::new();
+        file.read_to_string(&mut string).unwrap();
+        let mut cmds: Vec<_> = Vec::new();
+        for line in string.lines() {
+            if !line.is_empty() {
+                cmds.push(line.to_string())
+            }
+        }
+
+        (meku.file_stem().unwrap(),cmds)
+    }).collect();
+
+    let mut cmds_raw = Vec::new();
+    let mut filescpy: Vec<_> = Vec::new();
+    'filel: for file in files {
+        for tup in mekus.iter() {
+            let &(ref stem,ref cmds) = tup;
+            if &file.extension().unwrap() == stem {
+                cmds_raw.push( (file,cmds) );
+                continue 'filel;
+            }
+        }
+        filescpy.push(relative_from(&src_dir,file));
+    }
+
+    for (file,cmds) in cmds_raw {
+        for cmdstr in cmds {
+            let mut cmditer = cmdstr.split_whitespace();
+            let mut cmd = Command::new(cmditer.next().unwrap());
+            for arg in cmditer {
+                let newarg = arg
+                    .replace("%{src_file}",file.to_str().unwrap())
+                    .replace("%{tar_dir}", tar_dir.as_ref().to_str().unwrap())
+                    .replace("%{src_file_stem}",file.file_stem().unwrap().to_str().unwrap());
+                cmd.arg (newarg);
+            }
+            println!("Executing: {:?}",cmd);
+            cmd.status().unwrap();
+        }
+    }
+
+    copy_dir_with_filelist(&src_dir,&tar_dir,&filescpy);
 }
 
 pub fn buildcmd<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
