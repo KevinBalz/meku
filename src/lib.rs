@@ -1,11 +1,19 @@
+extern crate tempdir;
+
+use tempdir::TempDir;
+
 use std::fs;
 use std::path;
 use std::path::Path;
 
 pub fn run_build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
-    map_contents(src_dir,|path| println!("{:?}",path));
+    let files: Vec<_> = iter_contents(&src_dir).map(|f| relative_from(&src_dir,f)).collect();
+
+    let tmp_dir = TempDir::new("meku").unwrap();
+    copy_dir_with_filelist(&src_dir,tmp_dir.path(),&files);
+
     for tar_dir in target_dirs.iter() {
-        println!("OUTPUT FOLDER: {:?}",tar_dir.as_ref());
+        copy_dir_with_filelist(tmp_dir.path(),tar_dir.as_ref(),&files);
     }
 
 }
@@ -18,6 +26,24 @@ fn map_contents<P: AsRef<Path>,F: Fn(path::PathBuf) -> R,R>(dirref: P,func: F) -
 
 fn map_dir<P: AsRef<Path>,F: Fn(path::PathBuf,fs::FileType) -> R,R>(dirref: P,func: F) -> Vec<R> {
     iter_dir(dirref).map(|(p,t)| func(p,t) ).collect()
+}
+
+fn copy_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
+    let files: Vec<_> = iter_contents(&src_dir).map(|f| relative_from(&src_dir,f)).collect();
+    copy_dir_with_filelist(src_dir,tar_dir,&files);
+}
+
+fn copy_dir_with_filelist<S: AsRef<Path>,T: AsRef<Path>,F: AsRef<Path>>(src_dir: S,tar_dir: T,files: &[F]) {
+    println!("OUTPUT FOLDER: {:?}",tar_dir.as_ref());
+    for file_rel in files.iter() {
+        let src_file = src_dir.as_ref().join(file_rel);
+        let tar_file = tar_dir.as_ref().join(file_rel);
+
+        println!("Copy: {:?} to {:?}",&src_file,&tar_file);
+        fs::create_dir_all(tar_file.parent().unwrap()).unwrap();
+        fs::File::create(&tar_file).unwrap();
+        fs::copy(&src_file,&tar_file).unwrap();
+    }
 }
 
 struct IterDir {
@@ -80,4 +106,14 @@ impl Iterator for IterContents {
 
 fn iter_contents<P: AsRef<Path>>(dirref: P) -> IterContents {
     IterContents {diriter: iter_dir(dirref),recur: None }
+}
+
+/// Replacement for Path.relative_from
+fn relative_from<S: AsRef<Path>,T: AsRef<Path>>(source: S,path: T) -> path::PathBuf {
+    let srciter = source.as_ref().components();
+    let mut pathiter = path.as_ref().components();
+    for _ in srciter {
+        pathiter.next();
+    }
+    pathiter.as_path().to_path_buf()
 }
