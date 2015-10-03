@@ -11,8 +11,8 @@ use std::io::Read;
 use std::process::Command;
 
 
-
-pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
+/// Executes the meku build process for `src_dir` and write the results to `tar_dir`
+pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     let (mekufiles,files): (Vec<_>, Vec<_>) = iter_contents(&src_dir).partition(|f| match f.file_name() {
         Some(name) => name == "meku.yml",
         None       => false
@@ -72,9 +72,10 @@ pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     copy_dir_with_filelist(&src_dir,&tar_dir,&filescpy);
 }
 
+/// Does the same as executing the executable with `meku build <target_dirs>...`
 pub fn buildcmd<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
     let tmp_dir = TempDir::new("meku-build").unwrap();
-    build_dir(&src_dir,tmp_dir.path());
+    build(&src_dir,tmp_dir.path());
 
     for tar_dir in target_dirs.iter() {
         copy_dir(tmp_dir.path(),tar_dir.as_ref());
@@ -82,9 +83,10 @@ pub fn buildcmd<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,target_dirs: &[T]) {
 
 }
 
+/// Does the same as executing the executable with `meku run <cmdname> <params>...`
 pub fn runcmd<S: AsRef<Path>>(src_dir: S,cmdname: &str,params: &[&str]) {
     let tmp_dir = TempDir::new("meku-run").unwrap();
-    build_dir(&src_dir,tmp_dir.path());
+    build(&src_dir,tmp_dir.path());
 
     let mut cmd = Command::new(cmdname);
     for param in params.iter()

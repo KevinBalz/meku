@@ -6,6 +6,10 @@ readme = "README.md"
 license = "MIT"
 authors = ["Kevin Balz"]
 
+[[bin]]
+name = "meku"
+doc = false
+
 [dependencies]
 clap = "*"
 tempdir = "*"
