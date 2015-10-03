@@ -1,6 +1,8 @@
 extern crate tempdir;
+extern crate yaml_rust;
 
 use tempdir::TempDir;
+use yaml_rust::YamlLoader;
 
 use std::fs;
 use std::path;
@@ -11,31 +13,37 @@ use std::process::Command;
 
 
 pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
-    let (mekufiles,files): (Vec<_>, Vec<_>) = iter_contents(&src_dir).partition(|f| match f.extension() {
-        Some(ext) => ext == "meku",
-        None      => false
+    let (mekufiles,files): (Vec<_>, Vec<_>) = iter_contents(&src_dir).partition(|f| match f.file_name() {
+        Some(name) => name == "meku.yml",
+        None       => false
     });
 
-    let mekus: Vec<_> =  mekufiles.iter().map( |meku| {
+    // Parse all meku.yml files
+    let mut mekus: Vec<_> = Vec::new();
+    for meku in mekufiles.iter() {
         let mut file = fs::File::open(meku).unwrap();
         let mut string = String::new();
         file.read_to_string(&mut string).unwrap();
-        let mut cmds: Vec<_> = Vec::new();
-        for line in string.lines() {
-            if !line.is_empty() {
-                cmds.push(line.to_string())
+        let yaml = YamlLoader::load_from_str(&string).unwrap();
+
+        for (key,value) in yaml[0].as_hash().unwrap().iter() {
+            let ext = Path::new(key.as_str().unwrap()).extension().unwrap();
+            let mut cmds: Vec<_> = Vec::new();
+            for cmd in value["commands"].as_vec().unwrap().iter() {
+                cmds.push(cmd.as_str().unwrap().to_string());
             }
+
+            mekus.push((ext.to_os_string(),cmds));
         }
+    }
 
-        (meku.file_stem().unwrap(),cmds)
-    }).collect();
-
+    // Find all files which have to be processed
     let mut cmds_raw = Vec::new();
     let mut filescpy: Vec<_> = Vec::new();
     'filel: for file in files {
         for tup in mekus.iter() {
-            let &(ref stem,ref cmds) = tup;
-            if &file.extension().unwrap() == stem {
+            let &(ref ext,ref cmds) = tup;
+            if file.extension().unwrap() == ext.as_os_str() {
                 cmds_raw.push( (file,cmds) );
                 continue 'filel;
             }
@@ -43,6 +51,7 @@ pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
         filescpy.push(relative_from(&src_dir,file));
     }
 
+    // Process all found files
     for (file,cmds) in cmds_raw {
         for cmdstr in cmds {
             let mut cmditer = cmdstr.split_whitespace();
@@ -59,6 +68,7 @@ pub fn build_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
         }
     }
 
+    // Copy all normal files
     copy_dir_with_filelist(&src_dir,&tar_dir,&filescpy);
 }
 

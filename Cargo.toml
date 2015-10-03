@@ -6,3 +6,4 @@ authors = ["Kevin Balz"]
 [dependencies]
 clap = "*"
 tempdir = "*"
+yaml-rust = "*"
