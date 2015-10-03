@@ -1,6 +1,9 @@
 [package]
 name = "meku"
 version = "0.1.0"
+repository = "https://github.com/KevinBalz/meku.git"
+readme = "README.md"
+license = "MIT"
 authors = ["Kevin Balz"]
 
 [dependencies]
