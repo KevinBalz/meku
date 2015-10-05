@@ -9,7 +9,7 @@ fn main() {
     let args = App::new("meku")
         .author("Kevin Balz")
         .version(env!("CARGO_PKG_VERSION"))
-        .about("an awesome build system for game makers")
+        .about("a simple content pipeline for game makers")
         .arg_required_else_help(true)
         .arg(Arg::with_name("source")
             .short("C")
