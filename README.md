@@ -56,4 +56,8 @@ It describes the rules convert .psd files and .tmx files to their useable end re
 - [ ] Flesh out the meku.yml format
 - [ ] Proper Readme
 
+# Note
+
+meku is still in heavy development.
+
 *Licensed under MIT*
