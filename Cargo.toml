@@ -14,3 +14,4 @@ doc = false
 clap = "*"
 tempdir = "*"
 yaml-rust = "*"
+regex = "*"

@@ -1,8 +1,10 @@
 extern crate tempdir;
 extern crate yaml_rust;
+extern crate regex;
 
 use tempdir::TempDir;
 use yaml_rust::{YamlLoader,Yaml};
+use regex::Regex;
 
 use std::fs;
 use std::path;
@@ -77,7 +79,7 @@ pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
         for rule in rules.iter() {
             let ext = &rule.pattern;
             let action = &rule.action;
-            if file.extension().unwrap() == ext.as_os_str() {
+            if pattern_match(ext,&file) {
                 cmds_raw.push( (file,action) );
                 continue 'filel;
             }
@@ -136,6 +138,53 @@ pub fn runcmd<S: AsRef<Path>>(src_dir: S,cmdname: &str,params: &[&str]) {
     }
     println!("Executing {:?}",cmd);
     cmd.status().unwrap();
+}
+
+#[test]
+fn test_pattern_match_without_stars() {
+    assert_eq!(true,pattern_match("main.moon","main.moon"));
+    assert_eq!(false,pattern_match("main.moon","main.c"));
+}
+
+//TODO: expand tests
+#[test]
+fn test_pattern_match_single_star() {
+    //Single star
+    assert_eq!(true,pattern_match("*.moon","main.moon"));
+    assert_eq!(false,pattern_match("*.moon","main.c"));
+    assert_eq!(false,pattern_match("*.moon","a.moon.c"));
+}
+
+#[test]
+fn test_pattern_match_single_star_with_previous_folders() {
+    //Single star with previous folders
+    assert_eq!(false,pattern_match("*.moon","src/main.moon"));
+    assert_eq!(false,pattern_match("*.moon","src/main.c"));
+}
+
+#[test]
+fn test_pattern_match_double_star() {
+    //Double star
+    assert_eq!(true,pattern_match("**.moon","src/main.moon"));
+    assert_eq!(false,pattern_match("**.moon","src/main.moon.c"));
+    assert_eq!(true,pattern_match("**.moon","main.moon"));
+    assert_eq!(false,pattern_match("**.moon","src/main.c"));
+}
+
+/// Checks if two file patterns with "wildcards" match
+//TODO: DO the real thing instead of checking the filending
+//TODO: Return value to determine how specific it matched (for deciding which pattern of more matches most)
+fn pattern_match<P: AsRef<Path>>(pattern: &str,path: P) -> bool {
+    //Convert pattern to regex
+    let re = Regex::new("[^\\\\/]*\\.moon").unwrap();
+
+    assert_eq!(true, re.is_match("test.moon"));
+    assert_eq!(false, re.is_match("test.c"));
+
+    
+    //TODO: do above
+    
+    path.as_ref().extension().unwrap() == Path::new(pattern).extension().unwrap() 
 }
 
 //Helper Functions
