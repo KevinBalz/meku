@@ -97,7 +97,8 @@ pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
                     let newarg = arg
                         .replace("%{src_file}",file.to_str().unwrap())
                         .replace("%{tar_dir}", tar_dir.as_ref().to_str().unwrap())
-                        .replace("%{src_file_stem}",file.file_stem().unwrap().to_str().unwrap());
+                        .replace("%{src_file_stem}",file.file_stem().unwrap().to_str().unwrap())
+                        .replace("%{src_rel_noext}",relative_from(&src_dir,&file).with_extension("").to_str().unwrap());
                     cmd.arg (newarg);
                 }
                 println!("Executing: {:?}",cmd);
