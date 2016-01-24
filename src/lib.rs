@@ -179,6 +179,8 @@ fn test_pattern_match_single_star_with_previous_folders() {
     //Single star with previous folders
     assert_eq!(false,pattern_match("*.moon","src/main.moon"));
     assert_eq!(false,pattern_match("*.moon","src/main.c"));
+    assert_eq!(true,pattern_match("src/*.moon","src/main.moon"));
+    assert_eq!(false,pattern_match("src/*.moon","src/main.c"));
 }
 
 #[test]
@@ -190,20 +192,52 @@ fn test_pattern_match_double_star() {
     assert_eq!(false,pattern_match("**.moon","src/main.c"));
 }
 
+//TODO: match all regex chars
+fn push_escaped(strng: &mut String,c: char) {
+    match c {
+        '.' => strng.push_str("\\."),
+        ch  => strng.push(ch)
+    };
+}
+
 /// Checks if two file patterns with "wildcards" match
-//TODO: DO the real thing instead of checking the filending
+//TODO: allow escaping characters in search pattern?
 //TODO: Return value to determine how specific it matched (for deciding which pattern of more matches most)
 fn pattern_match<P: AsRef<Path>>(pattern: &str,path: P) -> bool {
     //Convert pattern to regex
-    let re = Regex::new("[^\\\\/]*\\.moon").unwrap();
+    let mut last_was_star = false;
+    let mut regstr = String::from("^");
 
-    assert_eq!(true, re.is_match("test.moon"));
-    assert_eq!(false, re.is_match("test.c"));
+    //TODO: find out if .chars could make problems with utf8 characters
+    for ch in pattern.chars() {
+        match (ch,last_was_star) {
+            ('*',true) => {
+                last_was_star = false;
+                regstr.push_str(".*");
+            },
+            (c,true) => {
+                last_was_star = false;
+                regstr.push_str("[^\\\\/]*");
+                push_escaped(&mut regstr,c);
+            },
+            ('*',false) => {
+                last_was_star = true;
+            },
+            (c,false) => {
+                push_escaped(&mut regstr,c);
+            }
 
+        }
+    }
+    if last_was_star {
+        regstr.push_str("[^\\\\/]*");
+    }
+    regstr.push_str("$");
 
-    //TODO: do above
+    //Apply regex to path
+    let re = Regex::new(&regstr).unwrap();
 
-    path.as_ref().extension().unwrap() == Path::new(pattern).extension().unwrap()
+    re.is_match(path.as_ref().to_str().unwrap())
 }
 
 //Helper Functions
