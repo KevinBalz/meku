@@ -3,14 +3,14 @@ extern crate meku;
 
 use std::env;
 use std::path::Path;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App, SubCommand, AppSettings};
 
 fn main() {
     let args = App::new("meku")
         .author("Kevin Balz")
         .version(env!("CARGO_PKG_VERSION"))
         .about("a simple content pipeline for game makers")
-        .arg_required_else_help(true)
+        .setting(AppSettings::ArgRequiredElseHelp)
         .arg(Arg::with_name("source")
             .short("C")
             .long("directory")
@@ -46,10 +46,12 @@ fn main() {
 
     match args.subcommand() {
         ("build",Some(args)) => {
-            meku::buildcmd(src_dir,&args.values_of("output").unwrap());
+            let build_args: Vec<&str> = args.values_of("output").unwrap().collect();
+            meku::buildcmd(src_dir,&build_args);
         },
         ("run",Some(args)) => {
-            meku::runcmd(src_dir,args.value_of("cmd").unwrap(),&args.values_of("params").unwrap_or(Vec::new()));
+            let params: Vec<&str> = args.values_of("params").map_or(Vec::new(),|v| v.collect());
+            meku::runcmd(src_dir,args.value_of("cmd").unwrap(),&params);
         },
         _ => ()
     };
