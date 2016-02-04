@@ -76,15 +76,16 @@ pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     let mut cmds_raw = Vec::new();
     let mut filescpy: Vec<_> = Vec::new();
     'filel: for file in files {
+        let rel_file = relative_from(&src_dir,&file);
         for rule in rules.iter() {
             let ext = &rule.pattern;
             let action = &rule.action;
-            if pattern_match(ext,&file) {
+            if pattern_match(ext,&rel_file) {
                 cmds_raw.push( (file,action) );
                 continue 'filel;
             }
         }
-        filescpy.push(relative_from(&src_dir,file));
+        filescpy.push(rel_file);
     }
 
     clone_directory_structure(&src_dir,&tar_dir);
