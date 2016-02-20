@@ -1,4 +1,4 @@
-# meku [![Build Status](https://travis-ci.com/KevinBalz/meku.svg?token=h4R4ARvf2yf5bxyz3rxz&branch=master)](https://travis-ci.com/KevinBalz/meku)
+# meku [![Build Status](https://travis-ci.org/KevinBalz/meku.svg?branch=master)](https://travis-ci.org/KevinBalz/meku)
 
 meku is a simple content pipeline for game makers
 
