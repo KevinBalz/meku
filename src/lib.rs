@@ -76,16 +76,16 @@ pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     let mut cmds_raw = Vec::new();
     let mut filescpy: Vec<_> = Vec::new();
     'filel: for file in files {
-        let rel_file = relative_from(&src_dir,&file);
+        let rel_file = file.strip_prefix(&src_dir).unwrap();
         for rule in rules.iter() {
             let ext = &rule.pattern;
             let action = &rule.action;
             if pattern_match(ext,&rel_file) {
-                cmds_raw.push( (file,action) );
+                cmds_raw.push( (file.to_owned(),action) );
                 continue 'filel;
             }
         }
-        filescpy.push(rel_file);
+        filescpy.push(rel_file.to_owned());
     }
 
     clone_directory_structure(&src_dir,&tar_dir);
@@ -127,7 +127,7 @@ fn apply_holder<S: AsRef<Path>,SD: AsRef<Path>,T: AsRef<Path>>(src_file: S,src_d
         .replace("%{tar_dir}", tar_dir.as_ref().to_str().unwrap())
         .replace("%{src_file_stem}",src_file.as_ref().file_stem().unwrap().to_str().unwrap())
         .replace("%{src_file_noext}",src_file.as_ref().with_extension("").to_str().unwrap())
-        .replace("%{src_rel_noext}",relative_from(&src_dir,&src_file).with_extension("").to_str().unwrap())
+        .replace("%{src_rel_noext}",src_file.as_ref().strip_prefix(&src_dir).unwrap().with_extension("").to_str().unwrap())
 }
 
 /// Does the same as executing the executable with `meku build <target_dirs>...`
@@ -244,7 +244,7 @@ fn pattern_match<P: AsRef<Path>>(pattern: &str,path: P) -> bool {
 //Helper Functions
 
 fn copy_dir<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
-    let files: Vec<_> = iter_contents(&src_dir).map(|f| relative_from(&src_dir,f)).collect();
+    let files: Vec<_> = iter_contents(&src_dir).map(|f| f.strip_prefix(&src_dir).unwrap().to_owned()).collect();
     copy_dir_with_filelist(src_dir,tar_dir,&files);
 }
 
@@ -262,7 +262,7 @@ fn copy_dir_with_filelist<S: AsRef<Path>,T: AsRef<Path>,F: AsRef<Path>>(src_dir:
 }
 
 fn clone_directory_structure<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
-    for dir in iter_dirs(&src_dir).map(|f| tar_dir.as_ref().join(relative_from(&src_dir,f)) ) {
+    for dir in iter_dirs(&src_dir).map(|f| tar_dir.as_ref().join(f.strip_prefix(&src_dir).unwrap()) ) {
         std::fs::create_dir_all(dir).unwrap();
     }
 }
@@ -368,16 +368,6 @@ impl Iterator for IterDirs {
 
 fn iter_dirs<P: AsRef<Path>>(dirref: P) -> IterDirs {
     IterDirs {diriter: iter_dir(dirref),recur: None }
-}
-
-//HACK Replacement for Path.relative_from which is unstable
-fn relative_from<S: AsRef<Path>,T: AsRef<Path>>(source: S,path: T) -> path::PathBuf {
-    let srciter = source.as_ref().components();
-    let mut pathiter = path.as_ref().components();
-    for _ in srciter {
-        pathiter.next();
-    }
-    pathiter.as_path().to_path_buf()
 }
 
 #[test]
