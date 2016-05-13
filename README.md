@@ -1,6 +1,6 @@
 # meku [![Build Status](https://travis-ci.org/KevinBalz/meku.svg?branch=master)](https://travis-ci.org/KevinBalz/meku)
 
-meku is a simple content pipeline for game makers
+meku is a simple customizable asset pipeline for game makers
 
 # What it does
 
@@ -53,7 +53,8 @@ It describes the rules convert .psd files and .tmx files to their useable end re
 # TODO
 
 - [ ] Github Releases
-- [ ] Flesh out the meku.yml format
+- [ ] Flesh out the meku config format
+- [ ] Build to zip file
 - [ ] Proper Readme
 
 # Note
