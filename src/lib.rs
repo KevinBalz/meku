@@ -10,17 +10,25 @@ use std::fs;
 use std::path;
 use std::path::Path;
 use std::io::Read;
+use std::ffi::OsString;
 use std::process::Command;
 
 #[derive(Debug,PartialEq)]
-enum Action {
-    Command(Vec<String>)
+struct Action {
+    file: OsString,
+    transform: Transformation
+}
+
+#[derive(Debug,PartialEq,Clone)]
+enum Transformation {
+    Command(Vec<String>),
+    FileCopy,
 }
 
 #[derive(Debug,PartialEq)]
 struct Rule {
     pattern: String,
-    action: Action
+    transform: Transformation
 }
 
 #[test]
@@ -34,7 +42,7 @@ fn test_parse_rule_command() {
 
     let expected = Rule {
         pattern: "*.moon".to_string(),
-        action: Action::Command(vec!(testcmd.to_string() ))
+        transform: Transformation::Command(vec!(testcmd.to_string() ))
     };
     assert_eq!(expected,parse_rule(&key,&value));
 }
@@ -47,7 +55,7 @@ fn parse_rule(pattern: &Yaml,args: &Yaml) -> Rule {
         cmds.push(cmd.as_str().unwrap().to_string());
     }
 
-    Rule { pattern: pattern.to_string(),action: Action::Command(cmds) }
+    Rule { pattern: pattern.to_string(),transform: Transformation::Command(cmds) }
 }
 
 /// Executes the meku build process for `src_dir` and write the results to `tar_dir`
@@ -73,32 +81,30 @@ pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
     }
 
     // Find all files which have to be processed
-    let mut cmds_raw = Vec::new();
-    let mut filescpy: Vec<_> = Vec::new();
+    let mut actions = Vec::new();
     'filel: for file in files {
         let rel_file = file.strip_prefix(&src_dir).unwrap();
         for rule in rules.iter() {
             let ext = &rule.pattern;
-            let action = &rule.action;
             if pattern_match(ext,&rel_file) {
-                cmds_raw.push( (file.to_owned(),action) );
+                actions.push( Action { file: file.to_path_buf().into(),transform: rule.transform.clone() } );
                 continue 'filel;
             }
         }
-        filescpy.push(rel_file.to_owned());
+        actions.push(Action { file: rel_file.to_path_buf().into(), transform: Transformation::FileCopy});
     }
 
     clone_directory_structure(&src_dir,&tar_dir);
 
     // Process all found files
-    for (file,action) in cmds_raw {
-        match action {
-            &Action::Command(ref cmds) => for cmdstr in cmds {
+    for action in actions {
+        match action.transform {
+            Transformation::Command(ref cmds) => for cmdstr in cmds {
                 let mut cmditer = argenize(cmdstr);
                 match cmditer.next().unwrap() {
                     "mv" => {
-                        let src = apply_holder(&file, &src_dir, &tar_dir, cmditer.next().unwrap());
-                        let tar = apply_holder(&file, &src_dir, &tar_dir, cmditer.next().unwrap());
+                        let src = apply_holder(&action.file, &src_dir, &tar_dir, cmditer.next().unwrap());
+                        let tar = apply_holder(&action.file, &src_dir, &tar_dir, cmditer.next().unwrap());
                         println!("moving {} to {}",&src,&tar );
                         fs::copy(&src,&tar).unwrap();
                         fs::remove_file(&src).unwrap();
@@ -106,18 +112,17 @@ pub fn build<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
                     cmdst => {
                         let mut cmd = Command::new(cmdst);
                         for arg in cmditer {
-                            cmd.arg (apply_holder(&file, &src_dir, &tar_dir, arg));
+                            cmd.arg (apply_holder(&action.file, &src_dir, &tar_dir, arg));
                         }
                         println!("Executing: {:?}",cmd);
                         cmd.status().unwrap();
                     }
                 }
-            }
+            },
+            Transformation::FileCopy => copy_file(&action.file, &src_dir, &tar_dir)
         }
     }
 
-    // Copy all normal files
-    copy_dir_with_filelist(&src_dir,&tar_dir,&filescpy);
 }
 
 fn apply_holder<S: AsRef<Path>,SD: AsRef<Path>,T: AsRef<Path>>(src_file: S,src_dir: SD,tar_dir: T,arg: &str) -> String {
@@ -259,6 +264,17 @@ fn copy_dir_with_filelist<S: AsRef<Path>,T: AsRef<Path>,F: AsRef<Path>>(src_dir:
         fs::File::create(&tar_file).unwrap();
         fs::copy(&src_file,&tar_file).unwrap();
     }
+}
+
+fn copy_file<F: AsRef<Path>,S: AsRef<Path>,T: AsRef<Path>>(file_rel: F,src_dir: S,tar_dir: T) {
+    let src_file = src_dir.as_ref().join(file_rel.as_ref());
+    let tar_file = tar_dir.as_ref().join(file_rel);
+
+    println!("Copy: {:?} to {:?}",&src_file,&tar_file);
+    fs::create_dir_all(tar_file.parent().unwrap()).unwrap();
+    fs::File::create(&tar_file).unwrap();
+    fs::copy(&src_file,&tar_file).unwrap();
+
 }
 
 fn clone_directory_structure<S: AsRef<Path>,T: AsRef<Path>>(src_dir: S,tar_dir: T) {
